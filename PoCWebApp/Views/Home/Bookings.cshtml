@@ -1,0 +1,76 @@
+﻿@{
+    @using PoCWebApp.Models
+    @using PoCWebApp.Data
+    @using PoCWebApp.Services
+    @inject BookingsRepository _bookingRepositry
+    ViewData["Title"] = "My bookings";
+
+    var _bookings = await _bookingRepositry.GetBookings(ViewData["UserId"].ToString(), ViewData["Email"].ToString(), ViewData["AuthToken"].ToString());
+}
+<head>
+    <style>
+        .booking-table {
+            margin: 0 auto;
+            width: 100%;
+            border-collapse: collapse;
+            font-family: Arial, sans-serif;
+        }
+
+            .booking-table th,
+            .booking-table td {
+                padding: 10px;
+                text-align: center;
+                border: 1px solid #ccc;
+            }
+
+            .booking-table th {
+                font-weight: bold;
+                background-color: #f2f2f2;
+            }
+
+            .booking-table tr:nth-child(even) {
+                background-color: #f8f8f8;
+            }
+    </style>
+</head>
+
+<h1>@ViewData["Title"]</h1>
+@if (_bookings.Count != 0)
+{
+    <h2>Bookings:</h2>
+    <div style="overflow-x:auto;">
+        <table class="booking-table">
+            <tr>
+                <th>Customer Email</th>
+                <th>Flight Number</th>
+                <th>Departure Time</th>
+                <th>Arrival Time</th>
+                <th>Amount</th>
+                <th>Ticket Price</th>
+            </tr>
+            @foreach (var booking in _bookings)
+            {
+                <tr>
+                    <td>@booking.CustomerEmail</td>
+                    <td>@booking.FlightNumber</td>
+                    <td>@booking.DepartureTime</td>
+                    <td>@booking.ArrivalTime</td>
+                    <td>@booking.Ammount</td>
+                    <td>@booking.TicketPrice</td>
+                </tr>
+            }
+
+            <!-- Total Row -->
+            <tr>
+                <td colspan="4" style="text-align: left; font-weight: bold; padding-left: 100px;">Total:</td>
+                <td style="font-weight: bold;">@_bookings.Sum(x => x.Ammount)</td>
+                <td style="font-weight: bold;">@_bookings.Sum(x => x.TicketPrice)</td>
+            </tr>
+        </table>
+    </div>
+}
+else
+{
+    <p>No bookings found.</p>
+    <p>If you have just made a booking please wait while it is processed</p>
+}

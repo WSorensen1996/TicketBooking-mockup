@@ -1,0 +1,83 @@
+﻿@{
+    ViewData["Title"] = "Available Flights";
+    // Add a reference to the Flight class
+    @using PoCWebApp.Models
+    @using PoCWebApp.Data;
+    @inject FlightRepository flightRepository
+
+    // Get the list of available flights from the database
+    
+    var flights = await flightRepository.GetAllFlights();
+
+
+}
+
+<head>
+    <style>
+        table {
+            margin: 0 auto;
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: center;
+            border: 1px solid black;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+
+@*<h1>Available Flights</h1>*@
+<h1>@ViewData["Available Flights"]</h1>
+
+@*@if (!string.IsNullOrEmpty(ViewData["UserId"] as string))
+{
+    <p>User ID: @ViewData["UserId"]</p>
+}
+
+@if (!string.IsNullOrEmpty(ViewData["Name"] as string))
+{
+    <p>Name: @ViewData["Name"]</p>
+}
+*@
+
+<div>
+    <h2>Flights</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Flight Number</th>
+                <th>Departure Airport</th>
+                <th>Arrival Airport</th>
+                <th>Departure Time</th>
+                <th>Arrival Time</th>
+                <th>Price</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var flight in flights)
+            {
+                <tr>
+                    <td>@flight.FlightNumber</td>
+                    <td>@flight.DepartureAirport</td>
+                    <td>@flight.ArrivalAirport</td>
+                    <td>@flight.DepartureTime.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@flight.ArrivalTime.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>$@flight.Price</td>
+                    <td>
+                        <form method="post" asp-controller="Home" asp-action="AddToCart" asp-route-FlightNumber="@flight.FlightNumber.ToString()">
+                            <button type="submit">Add to Cart</button>
+                        </form>
+
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

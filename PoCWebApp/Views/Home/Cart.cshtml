@@ -1,0 +1,71 @@
+﻿@using Newtonsoft.Json
+@inject IHttpContextAccessor _contextAccessor
+
+@{
+    ViewData["Title"] = "Cart";
+
+
+    // Get the JSON string from the session
+    var jsonData = _contextAccessor.HttpContext.Session.GetString("ShoppingCart");
+
+    // Deserialize the JSON string to a list of dictionaries
+    var items = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(jsonData ?? "[]");
+
+}
+
+<div class="container py-4">
+    <h1 class="text-center">@ViewData["Title"]</h1>
+
+    <div class="text-center">
+
+        @if (items.Count == 0)
+        {
+            <p class="lead">Your shopping cart is empty.</p>
+        }
+        else
+        {
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Flight Number</th>
+                        <th>DepartureAirport</th>
+                        <th>ArrivalAirport</th>
+                        <th>Price</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var flight in items)
+                    {
+                        <tr>
+                            <td>@flight["FlightNumber"]</td>
+                            <td>@flight["DepartureAirport"]</td>
+                            <td>@flight["ArrivalAirport"]</td>
+                            <td>$@flight["Price"]</td>
+                            <td>
+                                <form method="post" asp-controller="Home" asp-action="RemoveFromCart" asp-route-FlightNumber="@flight["FlightNumber"]">
+                                    <button type="submit">Remove from Cart</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total:</td>
+                        <td></td>
+                        <td></td>
+                        <td>$@Model.totprice</td>
+                        <td>
+                            <form method="post" asp-controller="Home" asp-action="Checkout">
+                                <button type="submit">Checkout</button>
+                            </form>
+
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        }
+    </div>
+
+</div>
