@@ -9,6 +9,7 @@ namespace PoCAPI.Models.DTO
 
 
         public Guid Id { get; init; }
+
         [Required]
         public string CustomerID { get; init; }
 

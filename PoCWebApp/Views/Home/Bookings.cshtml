@@ -1,11 +1,11 @@
 ﻿@{
     @using PoCWebApp.Models
-    @using PoCWebApp.Data
+
     @using PoCWebApp.Services
     @inject BookingsRepository _bookingRepositry
     ViewData["Title"] = "My bookings";
 
-    var _bookings = await _bookingRepositry.GetBookings(ViewData["UserId"].ToString(), ViewData["Email"].ToString(), ViewData["AuthToken"].ToString());
+    var _bookings = await _bookingRepositry.GetBookings();
 }
 <head>
     <style>

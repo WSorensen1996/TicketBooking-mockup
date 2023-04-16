@@ -3,7 +3,7 @@ using PoCWebApp.Models;
 using System;
 using System.Collections.Generic;
 
-namespace PoCWebApp.Data
+namespace PoCWebApp.Services
 {
     public class FlightRepository
     {

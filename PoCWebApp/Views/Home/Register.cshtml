@@ -1,0 +1,74 @@
+﻿@model PoCWebApp.Models.RegisterModel
+
+@{
+    ViewData["Title"] = "Register";
+}
+
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: #fff;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Register</h1>
+        <form asp-controller="Home" asp-action="Register" method="post">
+
+
+            <label for="Email">Email</label>
+            <input type="text" id="Email" name="Email" placeholder="Enter Email" required>
+            <span asp-validation-for="Email" class="text-danger"></span>
+
+
+            <label for="Password">Password</label>
+            <input type="password" id="Password" name="Password" placeholder="Enter password" required>
+            <span asp-validation-for="Password" class="text-danger"></span>
+
+            <label for="FirstName">First Name</label>
+            <input type="text" id="FirstName" name="FirstName" placeholder="Enter First Name" required>
+            <span asp-validation-for="FirstName" class="text-danger"></span>
+
+            <label for="LastName">Last Name</label>
+            <input type="text" id="LastName" name="LastName" placeholder="Enter Last Name" required>
+            <span asp-validation-for="LastName" class="text-danger"></span>
+
+            <label for="City">City</label>
+            <input type="text" id="City" name="City" placeholder="Enter City" required>
+            <span asp-validation-for="City" class="text-danger"></span>
+
+            <button type="submit">Register</button>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger">
+                    @Html.ValidationSummary(false, "", new { @class = "text-danger" })
+                </div>
+            }
+        </form>
+    </div>
+</body>

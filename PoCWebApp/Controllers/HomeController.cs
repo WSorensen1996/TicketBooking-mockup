@@ -2,15 +2,13 @@
 using PoCWebApp.Models;
 using System.Diagnostics;
 using Newtonsoft.Json;
-using PoCWebApp.Data;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Principal;
 using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore.Identity;
-using PoCWebApp.Areas.Identity.Data;
 using PoCWebApp.Services;
 using System.Net.Http.Headers;
+using Microsoft.AspNetCore.Http;
 
 namespace PoCWebApp.Controllers
 {
@@ -30,17 +28,25 @@ namespace PoCWebApp.Controllers
         private readonly IConfiguration _configuration;
         private readonly FlightRepository _flightRepository;
         private readonly BookingsRepository _bookingsRepository;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly HttpClient _httpClient;
 
-        public HomeController(UserManager<ApplicationUser> userManager, IConfiguration configuration, IHttpContextAccessor httpContextAccessor, List<Dictionary<string, object>> cartList, List<ordersDTO> cartListFlights)
+
+        public HomeController(
+            IConfiguration configuration, 
+            IHttpContextAccessor httpContextAccessor, 
+            List<Dictionary<string, object>> cartList, 
+            List<ordersDTO> cartListFlights,
+            HttpClient httpClient
+            )
         {
             _contextAccessor = httpContextAccessor;
             _cartList = cartList;
             _cartListFlights = cartListFlights;
             _configuration = configuration;
             _flightRepository = new FlightRepository(_configuration);
-            _bookingsRepository = new BookingsRepository(_configuration);
-            _userManager = userManager; 
+            _httpClient = httpClient;
+            _bookingsRepository = new BookingsRepository(_configuration, _contextAccessor, _httpClient);
+
         }
 
         public int CalculateTotalPrice()
@@ -64,10 +70,6 @@ namespace PoCWebApp.Controllers
 
         public IActionResult Index()
         {
-
-            //ViewData["UserId"] = _userManager.GetUserId(this.User);
-            //ViewData["Name"] = _userManager.GetUserName(this.User);
-
             return View();
         }
 
@@ -78,7 +80,7 @@ namespace PoCWebApp.Controllers
             return View();
         }
 
-        [Authorize]
+    
         public IActionResult Claims()
         {
 
@@ -94,20 +96,108 @@ namespace PoCWebApp.Controllers
 
         public IActionResult Bookings()
         {
-            if (User.Identity.IsAuthenticated)
-            {
-                ViewData["UserId"] = _userManager.GetUserId(this.User);
-                ViewData["Email"] = _userManager.GetUserName(this.User);
-                ViewData["AuthToken"] = HttpContext.Session.GetString("AuthToken"); 
 
-                return View();
+            if (HttpContext.Session.GetString("AuthToken") == null)
+            {
+                return RedirectToAction("Login");
+            }
+
+            return View();
+            
+    
+
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Register(RegisterModel model)
+        {
+            if (ModelState.IsValid)
+            {
+
+                var connectionString = _configuration.GetConnectionString("API");
+                var json = JsonConvert.SerializeObject(model);
+                var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
+                var httpResponse = await _httpClient.PostAsync(connectionString + "/api/Auth/register", stringContent);
+
+                if (httpResponse.IsSuccessStatusCode)
+                {
+
+                    return RedirectToAction("Login");
+                }
+                else
+                {
+                    
+                    string errorMessage = await httpResponse.Content.ReadAsStringAsync();
+                    ModelState.AddModelError(string.Empty, errorMessage);
+                    return View("Register", model);
+                }
+
             }
             else
             {
-                return RedirectToPage("/Account/Login", new { area = "Identity" });
+
+                ModelState.AddModelError(string.Empty, "Form invalid"); 
+                return View("Register", model);
+            }
+        }
+
+        public IActionResult Register()
+        {
+            return View();
+        }
+
+        public IActionResult Logout()
+        {
+            _contextAccessor.HttpContext.Session.Clear();
+            return View("Index");
+        }
+
+
+
+        [HttpPost]
+        [ValidateAntiForgeryToken] 
+        public async Task<IActionResult> Login(LoginModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var connectionString = _configuration.GetConnectionString("API");
+
+                var json = JsonConvert.SerializeObject(model);
+                var stringContent = new StringContent(json, Encoding.UTF8, "application/json");
+     
+                var httpResponse = await _httpClient.PostAsync(connectionString + "/api/Auth/login", stringContent);
+
+                if (httpResponse.IsSuccessStatusCode)
+                {
+                    var responseContent = await httpResponse.Content.ReadAsStringAsync();
+
+                    dynamic tokenObject = JsonConvert.DeserializeObject<dynamic>(responseContent);
+                    string token = tokenObject.token;
+                    string CostumerId = tokenObject.costumerId;
+
+
+                    HttpContext.Session.SetString("AuthToken", token);
+                    HttpContext.Session.SetString("Email", model.Email);
+                    HttpContext.Session.SetString("CostumerID", CostumerId);
+
+                    return RedirectToAction("Index");
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty, "Invalid email or password"); // Add an error message to the ModelState
+                    return View("Login", model);
+
+                }
             }
 
+            else
+            {
+
+                return View(model);
+            }
         }
+
 
         public IActionResult Login()
         {
@@ -116,6 +206,12 @@ namespace PoCWebApp.Controllers
 
         public IActionResult Cart()
         {
+            if (HttpContext.Session.GetString("AuthToken") == null)
+            {
+                return RedirectToAction("Login");
+
+            }
+
 
             var model = new HomeViewModel
             {
@@ -126,74 +222,49 @@ namespace PoCWebApp.Controllers
             return View(model);
         }
 
-        [Authorize]
+
+
         public async Task<IActionResult> CheckoutAsync()
         {
 
             if (HttpContext.Session.GetString("AuthToken") == null)
             {
-                return RedirectToPage("/Account/Logout", new { area = "Identity" });
+                return RedirectToAction("Login");
             }
-               
-            var user = await _userManager.FindByIdAsync(_userManager.GetUserId(this.User));
 
             var connectionString = _configuration.GetConnectionString("API");
-
-
-            // Convert the object to JSON
             var json = JsonConvert.SerializeObject(_cartListFlights);
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _contextAccessor.HttpContext.Session.GetString("AuthToken"));
+            var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
+            var httpResponse = await _httpClient.PostAsync(connectionString + "/api/orders", httpContent);
 
-
-            // Create an instance of HttpClient
-            using (var client = new HttpClient())
+            var responseContent = await httpResponse.Content.ReadAsStringAsync();
+            if (httpResponse.IsSuccessStatusCode)
             {
+                _cartList.Clear();
+                _cartListFlights.Clear();
+                HttpContext.Session.Remove("ShoppingCart");
 
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", HttpContext.Session.GetString("AuthToken"));
-                client.DefaultRequestHeaders.Add("Email", user.Email);
-
-                var httpContent = new StringContent(json, Encoding.UTF8, "application/json");
-                var httpResponse = await client.PostAsync(connectionString + "/api/orders", httpContent);
-
-                var responseContent = await httpResponse.Content.ReadAsStringAsync();
-                if (httpResponse.IsSuccessStatusCode)
-                {
-                    _cartList.Clear();
-                    _cartListFlights.Clear();
-                    HttpContext.Session.Remove("ShoppingCart");
-
-                    return View();
-                }
-                else
-                {
-                    return RedirectToAction("OrderError");
-                }
-
-
+                return View();
+            }
+            else
+            {
+                return RedirectToAction("OrderError");
             }
 
+
+        
         }
-
-
-
-
-
-
 
             public IActionResult RemoveFromCart(string FlightNumber)
         {
-            // Find the flight in the cart list
             var _cartListflightToRemove = _cartList.FirstOrDefault(flight => flight["FlightNumber"].ToString() == FlightNumber);
             var _cartListFlightsflightToRemove = _cartListFlights.FirstOrDefault(flight => flight.FlightNumber.ToString() == FlightNumber);
-            // If the flight is found, remove it from the cart list
             if (_cartListflightToRemove != null)
             {
                 _cartList.Remove(_cartListflightToRemove);
                 _cartListFlights.Remove(_cartListFlightsflightToRemove);
-
-                // serialize the updated list to JSON
                 var jsonData = JsonConvert.SerializeObject(_cartList);
-
-                // store the updated JSON string in the session
                 _contextAccessor.HttpContext.Session.SetString("ShoppingCart", jsonData);
             }
 
@@ -205,13 +276,15 @@ namespace PoCWebApp.Controllers
         public async Task<IActionResult> AddToCart(string FlightNumber)
         {
 
-            if (User.Identity.IsAuthenticated)
+            if (HttpContext.Session.GetString("AuthToken") == null)
+            {
+                return RedirectToAction("Login");
+            }
+            
+            else
             {
 
                 Flight flight = await _flightRepository.GetFlightById(FlightNumber);
-
-
-
 
                 var _flight = new Dictionary<string, object>();
                 _flight.Add("FlightNumber", flight.FlightNumber);
@@ -223,8 +296,8 @@ namespace PoCWebApp.Controllers
                 ordersDTO _order = new ordersDTO
                 {
                     Id = Guid.NewGuid(),
-                    CustomerEmail = _userManager.GetUserName(this.User),
-                    CustomerID = _userManager.GetUserId(this.User),
+                    CustomerEmail = HttpContext.Session.GetString("Email"),
+                    CustomerID = HttpContext.Session.GetString("CostumerID"),
                     FlightNumber = flight.FlightNumber,
                     DepartureTime = flight.DepartureTime,
                     ArrivalTime = flight.ArrivalTime,
@@ -235,24 +308,12 @@ namespace PoCWebApp.Controllers
                 }; 
 
                 _cartListFlights.Add(_order);
-
-                // add the flight data to the cart list
                 _cartList.Add(_flight);
-
-
-                // serialize the list to JSON
                 var jsonData = JsonConvert.SerializeObject(_cartList);
-
-                // store the JSON string in the session
                 _contextAccessor.HttpContext.Session.SetString("ShoppingCart", jsonData);
-
-
                 return RedirectToAction("Cart");
             }
-            else
-            {
-                return RedirectToPage("/Account/Login", new { area = "Identity" });
-            }
+            
         }
 
 

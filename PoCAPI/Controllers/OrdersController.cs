@@ -11,67 +11,44 @@ using Microsoft.Azure.Amqp.Framing;
 
 namespace PoCAPI.Controllers
 {
-
+    [Authorize]
     [Route("api/orders")]
     [ApiController]
     public class OrdersController : ControllerBase
     {
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly ordersDbContext _db;
         private readonly IQueueService _queueService;
         private readonly string _queueName = "orderqueuetodb";
-        private readonly UserManager<ApplicationUser> _userManager;
+       
 
-        public OrdersController(ordersDbContext db, IQueueService queueService, UserManager<ApplicationUser> userManager)
+        public OrdersController(
+            UserManager<ApplicationUser> userManager,
+            ordersDbContext db, 
+            IQueueService queueService
+            )
         {
             _db = db;
             _queueService = queueService;
             _userManager = userManager;
+
         }
 
 
-        private async Task<bool> CheckAuth(string token, string email)
-        {
-            var authorizationHeader = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
-            if (string.IsNullOrEmpty(authorizationHeader))
-            {
-                return false;
-            }
 
-            var tokenValue = authorizationHeader.Split(" ").LastOrDefault();
-            if (string.IsNullOrEmpty(tokenValue) || tokenValue == "Bearer")
-            {
-                return false;
-            }
-
-            var user = await _userManager.FindByEmailAsync(email);
-            bool isTokenValid = await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultProvider, "AccessToken", tokenValue);
-
-            return isTokenValid;
-        }
-
-
-        [HttpGet("{Costumer_id}", Name = "Costumer_id")]
+        [HttpGet("{Email}", Name = "Email")]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<IEnumerable<ordersDTO>>> GetOrders(string Costumer_id)
+        public async Task<ActionResult<IEnumerable<ordersDTO>>> GetOrders(string Email)
         {
-            var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
-            var email = Request.Headers["Email"];
 
-            bool isTokenValid = await CheckAuth(token, email);
 
-            if (isTokenValid == false)
+            if (string.IsNullOrEmpty(Email))
             {
                 return BadRequest();
             }
 
-
-            if (string.IsNullOrEmpty(Costumer_id))
-            {
-                return BadRequest();
-            }
-
-            var _orders = _db.orders.Where(u => u.CustomerID == Costumer_id.ToString()).ToList();
+            var _orders = _db.orders.Where(u => u.CustomerEmail == Email.ToString()).ToList();
 
 
             if (_orders == null)
@@ -88,49 +65,32 @@ namespace PoCAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<Orders>> CreateOrder([FromBody] List<ordersDTO> ordersDTO)
         {
-            var token = HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
-            var email = Request.Headers["Email"];
-            bool isTokenValid = await CheckAuth(token, email); 
-
-            if (isTokenValid == false)
-            {
-                return BadRequest();
-            }
 
 
-            if (isTokenValid)
+            foreach (var _order in ordersDTO)
             {
 
-                foreach (var _order in ordersDTO)
+                // checking if the Item is unique
+                if (_db.orders.FirstOrDefault(u => u.Id == _order.Id) != null)
                 {
-
-                    // checking if the Item is unique
-                    if (_db.orders.FirstOrDefault(u => u.Id == _order.Id) != null)
-                    {
-                        ModelState.AddModelError("CustomError", "Order already exists!");
-                        return BadRequest(ModelState);
-                    }
-
-                    if (_order == null)
-                    {
-                        return BadRequest(_order);
-                    }
-
+                    ModelState.AddModelError("CustomError", "Order already exists!");
+                    return BadRequest(ModelState);
                 }
 
-                // Send the message to the queue
-                await _queueService.SendMessageAsync(ordersDTO, _queueName);
-
-                //}
-
-                // Returns the url where the data is stored
-                return Accepted(ordersDTO);
+                if (_order == null)
+                {
+                    return BadRequest(_order);
+                }
 
             }
-            else
-            {
-                return Unauthorized();
-            }
+
+            // Send the message to the queue
+            await _queueService.SendMessageAsync(ordersDTO, _queueName);
+
+  
+            return Accepted(ordersDTO);
+
+
 
         }
 

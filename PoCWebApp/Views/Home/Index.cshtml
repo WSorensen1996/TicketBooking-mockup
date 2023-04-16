@@ -1,12 +1,11 @@
 ﻿@{
     ViewData["Title"] = "Available Flights";
-    // Add a reference to the Flight class
+
     @using PoCWebApp.Models
-    @using PoCWebApp.Data;
+    @using PoCWebApp.Services;
     @inject FlightRepository flightRepository
 
-    // Get the list of available flights from the database
-    
+
     var flights = await flightRepository.GetAllFlights();
 
 
@@ -32,19 +31,7 @@
     </style>
 </head>
 
-@*<h1>Available Flights</h1>*@
 <h1>@ViewData["Available Flights"]</h1>
-
-@*@if (!string.IsNullOrEmpty(ViewData["UserId"] as string))
-{
-    <p>User ID: @ViewData["UserId"]</p>
-}
-
-@if (!string.IsNullOrEmpty(ViewData["Name"] as string))
-{
-    <p>Name: @ViewData["Name"]</p>
-}
-*@
 
 <div>
     <h2>Flights</h2>

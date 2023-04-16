@@ -4,11 +4,7 @@
 @{
     ViewData["Title"] = "Cart";
 
-
-    // Get the JSON string from the session
     var jsonData = _contextAccessor.HttpContext.Session.GetString("ShoppingCart");
-
-    // Deserialize the JSON string to a list of dictionaries
     var items = JsonConvert.DeserializeObject<List<Dictionary<string, object>>>(jsonData ?? "[]");
 
 }

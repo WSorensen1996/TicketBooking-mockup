@@ -3,18 +3,9 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using PoCAPI.Models;
 using PoCAPI.Models.DTO;
 
-// NuGet -> add package -> EntityFramework.SQLServer && EntityFramework.Tools
 
-// Tools -> Nuget -> PAckage manager console 
-// Retter i migrationen -> bare giv den nyt navn 
-
-//  add-migration Flights
-//  update-database 
-
-// SQL table is now updated
 namespace PoCAPI.Data
 {
-
 
     public class flightsDbContext : DbContext
     {
